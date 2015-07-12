@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width" />
+        <meta charset="utf-8" />
+        <title>MyFileUploader</title>
+        <script src="./myFileUpload.js"></script>
+    </head>
+    <body>
+        <form name="form1" id="form1">
+            <div style="float:left">
+                <input type="file" name="fileToUpload" id="fileToUpload" multiple="multiple" onchange="fileSelected()" />
+            </div>
+            <div id="btndiv">
+                <input type="button" onclick="uploadfiles()" value="上传文件" />
+            </div>
+            <div id="progressNumber"></div>
+            <div id="fileInfo"></div>
+        </form>
+    </body>
+</html>
