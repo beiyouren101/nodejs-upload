@@ -107,7 +107,7 @@ function nodeUploadByFormData(file) {
     xhr.open("POST", "http://localhost:3000", true);
     xhr.onreadystatechange = function () {
         if (xhr.readyState == 4 && xhr.status == 200) {
-            console.log(xhr.response.nextPiece);
+            console.log(xhr.response.nxtPiece);
         }
     }
     xhr.send(formdata);
