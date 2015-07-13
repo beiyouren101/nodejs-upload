@@ -103,10 +103,11 @@ function nodeUploadByFormData(file) {
     formdata.append("curPiece", 1);
     formdata.append("data", file);
     var xhr = new XMLHttpRequest();
+    xhr.responseType = 'json';
     xhr.open("POST", "http://localhost:3000", true);
     xhr.onreadystatechange = function () {
         if (xhr.readyState == 4 && xhr.status == 200) {
-            console.log(xhr.responseText);
+            console.log(xhr.response.nextPiece);
         }
     }
     xhr.send(formdata);
