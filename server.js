@@ -22,8 +22,8 @@ http.createServer(function (req, res) {
 			array[r[1]] = r[2];
 		}
 		var filename = array.filename;
-		var curPiece = array.curPiece;
-		var pieceCount = array.pieceCount;
+		var curPiece = parseInt(array.curPiece);
+		var pieceCount = parseInt(array.pieceCount);
 		var spliter = str.match(/-{29}[0-9a-zA-Z]+\r\n/g);
 		var spbuf = new Buffer(spliter[0], 'utf-8');
 		var count = 0,
@@ -77,6 +77,7 @@ http.createServer(function (req, res) {
 		var filePath = path.join(_defaultPath, filename);
 		var tempPath = path.join(_defaultPath, path.basename(filePath, path.extname(filePath)) + '_temp.data');
 		var nxtPiece = 1;
+		var tempdata;
 		fs.exists(filePath, function (fexists) {
 			fs.exists(tempPath, function (texists) {
 				if (!texists && !fexists) {
@@ -86,16 +87,13 @@ http.createServer(function (req, res) {
 					fs.closeSync(fd);
 				}
 				if (fexists && texists) {
-					var nxtPiece;
 					var trstream = fs.createReadStream(tempPath);
 					trstream.on("data", function (chunk) {
-						nxtPiece += chunk;
+						tempdata += chunk;
 					});
 					trstream.on("end", function () {
-						nxtPiece = parseInt(nxtPiece);
+						nxtPiece = parseInt(tempdata);
 						if (nxtPiece == curPiece) {
-
-
 							var aOption = {
 								flag: 'a',
 								encoding: null,
@@ -110,10 +108,11 @@ http.createServer(function (req, res) {
 											console.log(err.message);
 										}
 									});
+									
 									nxtPiece++;
 								} else {
-									trstream.pipe()
-								}
+									//trstream.pipe()
+									var twstream = fs.createWriteStream(tempPath);
 								var obj = '{' + '"nxtPiece":' + nxtPiece + '}';
 								res.writeHead(200, {
 									'Content-Length': obj.toString().length,
@@ -122,9 +121,11 @@ http.createServer(function (req, res) {
 								});
 								res.write(obj, 'utf-8');
 								res.end();
+								}
 							});
 							wstream.write(buffer);
-
+						} else {
+							
 						}
 					});
 				} else {
