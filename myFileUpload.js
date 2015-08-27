@@ -45,7 +45,7 @@ function uploadFileWhole(file) {
 	}
 }
 
-function uploadFileByBlob(file) {
+function uploadFilePieceByBlob(file) {
 	var xhr = new XMLHttpRequest();
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4 && xhr.status == 200) {
@@ -71,8 +71,10 @@ function uploadFileByBlob(file) {
 	console.log(file.size);
 }
 
-function uploadFileByFormData(file) {
+function uploadFilePieceByFormData(file) {
 	var pieceCount = Math.ceil(file.size / pieceSize);
+	var url = 'http://localhost:3000';
+	//var url = '../Home/UploadByPiece';
 	var xhr = new XMLHttpRequest();
 	xhr.responseType = 'json';
 	var index = 1;
@@ -81,8 +83,7 @@ function uploadFileByFormData(file) {
 	formdata.append("pieceCount", pieceCount);
 	formdata.append("curPiece", index);
 	formdata.append("data", file.slice((index - 1) * pieceSize, index * pieceSize));
-	//xhr.open('post', '../Home/UploadByPiece', true);
-	xhr.open("POST", "http://localhost:3000", true);
+	xhr.open("POST", url, true);
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4 && xhr.status == 200) {
 			var result = xhr.response;
@@ -95,8 +96,7 @@ function uploadFileByFormData(file) {
 				formdata.append("pieceCount", pieceCount);
 				formdata.append("curPiece", index);
 				formdata.append("data", file.slice((index - 1) * pieceSize, index * pieceSize));
-				//xhr.open('post', '../Home/UploadByPiece', true);
-				xhr.open("POST", "http://localhost:3000", true);
+				xhr.open("POST", url, true);
 				xhr.send(formdata);
 			}
 		}
@@ -104,7 +104,7 @@ function uploadFileByFormData(file) {
 	xhr.send(formdata);
 }
 
-function nodeUploadByFormData(file) {
+function nodeUploadWholeByFormData(file) {
 	var formdata = new FormData();
 	formdata.append("filename", file.name);
 	formdata.append("pieceCount", 1);
@@ -135,7 +135,7 @@ function nodeUploadWhole(file) {
 function uploadfiles() {
 	var files = document.getElementById("fileToUpload").files;
 	for (var i = 0; i < files.length; i++) {
-		uploadFileByFormData(files[i]);
+		uploadFilePieceByFormData(files[i]);
 	}
 	console.log('upload success.')
 

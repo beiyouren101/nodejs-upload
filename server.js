@@ -15,20 +15,20 @@ function procData(res) {
 		bufhelper.concat(chunk);
 	});
 	trstream.on("end", function () {
-		console.log('read temp ok!');
 		tempdata = bufhelper.toBuffer();
 		bufhelper.empty();
 		nxtPiece = parseInt(tempdata.toString());
-		console.log(nxtPiece);
 		if (nxtPiece == curPiece) {
+			// 当前传输片序号正确，写入文件
 			var aOption = {
-				flag: 'a',
+				flags: 'a',
 				encoding: null,
 				mode: '0666'
 			};
 			var wstream = fs.createWriteStream(filePath, aOption);
 			wstream.write(buffer);
 			wstream.end();
+			// 当前传输已是最后一片，则删除临时文件，返回响应
 			if (nxtPiece == pieceCount) {
 				fs.unlink(tempPath, function (err) {
 					if (err) {
@@ -46,37 +46,28 @@ function procData(res) {
 				res.write(obj, 'utf-8');
 				res.end();
 			} else {
+				// 还不是最后一片，更新片标记临时文件
 				nxtPiece++;
-				buffer = new Buffer(nxtPiece, 'utf-8');
-				console.log(nxtPiece);
-				fs.unlink(tempPath, function (err) {
-					if (err) {
-						console.log(err.message);
-					}
-					fs.open(tempPath, 'w', '0666', function (err, fd) {
-						if (err) {
-							console.log(err.message);
-						}
-						fs.close(fd, function (err) {
-							if (err) {
-								console.log(err.message);
-							}
-							var twstream = fs.createWriteStream(tempPath);
-							twstream.write(buffer);
-							twstream.end();
-							var obj = '{' + '"nxtPiece":' + nxtPiece + '}';
-							res.writeHead(200, {
-								'Content-Length': obj.toString().length,
-								'Content-Type': 'text/plain',
-								'Access-Control-Allow-Origin': '*'
-							});
-							res.write(obj, 'utf-8');
-							res.end();
-						});
-					});
+				buffer = new Buffer(nxtPiece.toString(), 'utf-8');
+				var wOption = {
+					flags: 'w',
+					encoding: null,
+					mode: '0666'
+				};
+				var twstream = fs.createWriteStream(tempPath, wOption);
+				twstream.write(buffer);
+				twstream.end();
+				var obj = '{' + '"nxtPiece":' + nxtPiece + '}';
+				res.writeHead(200, {
+					'Content-Length': obj.toString().length,
+					'Content-Type': 'text/plain',
+					'Access-Control-Allow-Origin': '*'
 				});
+				res.write(obj, 'utf-8');
+				res.end();
 			}
 		} else {
+			// 接收到错误的片，返回应该接收的片的序号
 			var obj = '{' + '"nxtPiece":' + nxtPiece + '}';
 			res.writeHead(200, {
 				'Content-Length': obj.toString().length,
@@ -97,6 +88,7 @@ http.createServer(function (req, res) {
 		buffer = bufhelper.toBuffer();
 		bufhelper.empty();
 
+		// 获取文件名、当前片序号，总片数
 		var str = buffer.toString();
 		var re = / name="(\w+\b)"\r\n\r\n(.+(\.\w+)*)\r\n-/g;
 		var array = new Array(3);
@@ -107,6 +99,8 @@ http.createServer(function (req, res) {
 		filename = array.filename;
 		curPiece = parseInt(array.curPiece);
 		pieceCount = parseInt(array.pieceCount);
+
+		// 提取内容分隔符
 		var spliter = str.match(/-{29}[0-9a-zA-Z]+\r\n/g);
 		var spbuf = new Buffer(spliter[0], 'utf-8');
 		var count = 0,
@@ -114,6 +108,7 @@ http.createServer(function (req, res) {
 			endindex = buffer.length,
 			i = 0,
 			j = 0;
+		// 从前向后遍历，过滤至第四个分隔符的结束，即指向文件内容的开始
 		for (i = 0; i < buffer.length; i++) {
 			if (buffer[i] != spbuf[0]) {
 				continue;
@@ -141,6 +136,7 @@ http.createServer(function (req, res) {
 			}
 		}
 
+		// 从后向前遍历直至最后一个分隔符的开始
 		for (i = buffer.length - 1; i >= startindex; i--) {
 			if (buffer[i] != 0x2d) {
 				continue;
@@ -155,6 +151,7 @@ http.createServer(function (req, res) {
 				break;
 			}
 		}
+		// 取的传输的文件数据
 		buffer = buffer.slice(startindex, endindex);
 
 		filePath = path.join(_defaultPath, filename);
@@ -168,26 +165,20 @@ http.createServer(function (req, res) {
 							console.log(err.message);
 							return;
 						}
-						console.log('create file ok!');
 						fs.close(fd, function (err) {
 							if (err) {
 								console.log(err.message);
 							}
-							console.log('close file ok!');
 							fs.open(tempPath, 'w', '0666', function (err, fd) {
 								if (err) {
 									console.log(err.message);
 								}
-								console.log('create temp ok!');
 								fs.close(fd, function (err) {
 									if (err) {
 										console.log(err.message);
 									}
-									console.log('close temp ok!');
 									var twstrm = fs.createWriteStream(tempPath);
-									console.log('begin init temp:')
 									twstrm.write(new Buffer('1', 'utf-8'));
-									console.log('end write temp!');
 									twstrm.end();
 									procData(res);
 								});
@@ -196,7 +187,6 @@ http.createServer(function (req, res) {
 					});
 				}
 				if (fexists && texists) {
-					console.log('both exists!')
 					procData(res);
 				} else {
 					// 原文件已传输完或临时文件丢失
@@ -211,29 +201,3 @@ http.createServer(function (req, res) {
 	});
 }).listen(3000);
 console.log("HTTP server is listening at port 3000.");
-
-
-function writeOneMillionTimes(writer, data, encoding, callback) {
-	var i = 1000000;
-	write();
-
-	function write() {
-		var ok = true;
-		do {
-			i -= 1;
-			if (i === 0) {
-				// last time!
-				writer.write(data, encoding, callback);
-			} else {
-				// see if we should continue, or wait
-				// don't pass the callback, because we're not done yet.
-				ok = writer.write(data, encoding);
-			}
-		} while (i > 0 && ok);
-		if (i > 0) {
-			// had to stop early!
-			// write some more once it drains
-			writer.once('drain', write);
-		}
-	}
-}
