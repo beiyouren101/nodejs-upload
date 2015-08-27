@@ -7,15 +7,15 @@ var bufhelper = new Bufferhelper();
 //var math = require('math');
 var _defaultPath = 'D:\\';
 var stepSize = 1024 * 1024 * 1;
-var filename, curPiece, pieceCount, buffer, filePath, tempPath, nxtPiece, tempdata;
+//var filename, curPiece, pieceCount, buffer, filePath, tempPath, nxtPiece, tempdata;
 
-function procData(res) {
+function procData(res, curPiece, pieceCount, buffer, filePath, tempPath, nxtPiece) {
 	var trstream = fs.createReadStream(tempPath);
 	trstream.on("data", function (chunk) {
 		bufhelper.concat(chunk);
 	});
 	trstream.on("end", function () {
-		tempdata = bufhelper.toBuffer();
+		var tempdata = bufhelper.toBuffer();
 		bufhelper.empty();
 		nxtPiece = parseInt(tempdata.toString());
 		if (nxtPiece == curPiece) {
@@ -85,30 +85,40 @@ http.createServer(function (req, res) {
 		bufhelper.concat(chunk);
 	});
 	req.on('end', function () {
-		buffer = bufhelper.toBuffer();
+		var buffer = bufhelper.toBuffer();
 		bufhelper.empty();
 
+		// 提取内容分隔符
+		var content = req.headers['content-type'];
+		var spliter = content.substring(content.indexOf('=') + 1, content.length);
+		var spbuf = new Buffer(spliter, 'utf-8');
+		
 		// 获取文件名、当前片序号，总片数
-		var str = buffer.toString();
-		var re = / name="(\w+\b)"\r\n\r\n(.+(\.\w+)*)\r\n-/g;
+		var str = buffer.toString().substring();
+		var beginIndex = spliter.length + 2;
+		var str1 = str.substring(beginIndex, str.indexOf(spliter, beginIndex) - 2);
+		beginIndex += str1.length + spliter.length + 4;
+		var str2 = str.substring(beginIndex, str.indexOf(spliter, beginIndex) - 2);
+		beginIndex += str2.length + spliter.length + 2;
+		var str3 = str.substring(beginIndex, str.indexOf(spliter, beginIndex) - 2);
+		str = str1 + str2 + str3;
+		console.log(str);
+		var re = /name="(\w+\b)"\r\n\r\n(.+)/g;
 		var array = new Array(3);
 		var r = null;
 		while (r = re.exec(str)) {
-			array[r[1]] = r[2];
+			 array[r[1]] = r[2];
 		}
-		filename = array.filename;
-		curPiece = parseInt(array.curPiece);
-		pieceCount = parseInt(array.pieceCount);
+		var filename = array.filename;
+		var curPiece = parseInt(array.curPiece);
+		var pieceCount = parseInt(array.pieceCount);
 
-		// 提取内容分隔符
-		var spliter = str.match(/-{29}[0-9a-zA-Z]+\r\n/g);
-		var spbuf = new Buffer(spliter[0], 'utf-8');
+		// 从前向后遍历，过滤至第四个分隔符的结束，即指向文件内容的开始
 		var count = 0,
 			startindex = 0,
 			endindex = buffer.length,
 			i = 0,
 			j = 0;
-		// 从前向后遍历，过滤至第四个分隔符的结束，即指向文件内容的开始
 		for (i = 0; i < buffer.length; i++) {
 			if (buffer[i] != spbuf[0]) {
 				continue;
@@ -154,9 +164,9 @@ http.createServer(function (req, res) {
 		// 取的传输的文件数据
 		buffer = buffer.slice(startindex, endindex);
 
-		filePath = path.join(_defaultPath, filename);
-		tempPath = path.join(_defaultPath, path.basename(filePath, path.extname(filePath)) + '_temp.data');
-		nxtPiece = 1;
+		var filePath = path.join(_defaultPath, filename);
+		var tempPath = path.join(_defaultPath, path.basename(filePath, path.extname(filePath)) + '_temp.data');
+		var nxtPiece = 1;
 		fs.exists(filePath, function (fexists) {
 			fs.exists(tempPath, function (texists) {
 				if (!texists && !fexists) {
@@ -180,19 +190,52 @@ http.createServer(function (req, res) {
 									var twstrm = fs.createWriteStream(tempPath);
 									twstrm.write(new Buffer('1', 'utf-8'));
 									twstrm.end();
-									procData(res);
+									procData(res, curPiece, pieceCount, buffer, filePath, tempPath, nxtPiece);
 								});
 							});
 						});
 					});
-				}
-				if (fexists && texists) {
-					procData(res);
+				} else if (fexists && texists) {
+					procData(res, curPiece, pieceCount, buffer, filePath, tempPath, nxtPiece);
+				} else if (!fexists && texists) {
+					// 原文件丢失，临时文件未丢失
+					fs.unlink(tempPath, function (err) {
+						if (err) {
+							console.log(err.message);
+							return;
+						}
+					});
+					var obj = '{' + '"nxtPiece":' + 1 + '}';
+					res.writeHead(200, {
+						'Content-Length': obj.toString().length,
+						'Content-Type': 'text/plain',
+						'Access-Control-Allow-Origin': '*'
+					});
+					res.write(obj, 'utf-8');
+					res.end();
 				} else {
-					// 原文件已传输完或临时文件丢失
+					// 原文件已传输完,临时文件不存在
 					fs.stat(filePath, function (err, stats) {
 						var filesize = stats.size;
-						//var filePieceCount = math.ceil(filesize / stepSize);
+						if (filesize <= pieceCount * buffer.length && filesize > (pieceCount - 1) * buffer.length) {
+							nxtPiece = pieceCount + 1;
+						} else {
+							fs.unlink(filePath, function (err) {
+								if (err) {
+									console.log(err.message);
+									return;
+								}
+							});
+							nxtPiece = 1;
+						}
+						var obj = '{' + '"nxtPiece":' + nxtPiece + '}';
+						res.writeHead(200, {
+							'Content-Length': obj.toString().length,
+							'Content-Type': 'text/plain',
+							'Access-Control-Allow-Origin': '*'
+						});
+						res.write(obj, 'utf-8');
+						res.end();
 					});
 				}
 			});

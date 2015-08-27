@@ -1,10 +1,10 @@
-var pieceSize = 1024 * 1024 * 1;
+var pieceSize = 1024 * 1024 * 10;
 
 
 function fileSelected() {
 	document.getElementById('fileInfo').innerHTML = '';
-	var event = arguments.callee.caller.arguments[0] || event;
-	var evt = event.srcElement || event.target;
+	var e = arguments.callee.caller.arguments[0] || event;
+	var evt = e.srcElement || e.target;
 	var fileCount = evt.files.length;
 	for (var i = 0; i < fileCount; i++) {
 		var file = evt.files[i];
@@ -76,7 +76,7 @@ function uploadFilePieceByFormData(file) {
 	var url = 'http://localhost:3000';
 	//var url = '../Home/UploadByPiece';
 	var xhr = new XMLHttpRequest();
-	xhr.responseType = 'json';
+	//xhr.responseType = 'json';
 	var index = 1;
 	var formdata = new FormData();
 	formdata.append("filename", file.name);
@@ -87,6 +87,7 @@ function uploadFilePieceByFormData(file) {
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4 && xhr.status == 200) {
 			var result = xhr.response;
+			result = eval('(' + result + ')');
 			console.log(result.nxtPiece);
 			index = result.nxtPiece - 1;
 			index++;
