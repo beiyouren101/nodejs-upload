@@ -1,4 +1,4 @@
-var pieceSize = 1024 * 1024 * 10;
+var pieceSize = 1024 * 1024 * 2;
 
 
 function fileSelected() {
